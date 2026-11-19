@@ -99,8 +99,12 @@ Hello, Taro
 
 **以下は受講者が記入してください**
 
-- 追加で確認した入力例：
-- 発生したエラーと対処：
+- 追加で確認した入力例：NULL（空文字）の場合
+- 発生したエラーと対処：以下発生。問題なし。
+```
+usage: day01 [-h] --name NAME [--repeat REPEAT] [--format {text,json}]
+day01: error: argument --name: expected one argument
+```
 
 ## 提出物
 
