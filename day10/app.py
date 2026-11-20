@@ -19,6 +19,8 @@ def _validate_args(args: argparse.Namespace) -> None:
     """引数の簡易バリデーションを行います（入力不備は exit code=2）。"""
     if not args.text:
         raise ValueError("--text is required")
+    if not args.text.strip():
+        raise ValueError("--text must not be empty")
 
 
 def main(argv: List[str] | None = None) -> int:

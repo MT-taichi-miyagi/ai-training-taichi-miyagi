@@ -4,6 +4,15 @@ import argparse
 import logging
 import sys
 from typing import List
+import os
+
+from pydantic import BaseModel, StrictInt
+
+from dotenv import load_dotenv
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain.tools import tool
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_aws import ChatBedrockConverse
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -18,6 +27,9 @@ def _validate_args(args: argparse.Namespace) -> None:
     if not args.text:
         raise ValueError("--text is required")
 
+class AddInput(BaseModel):
+    a:StrictInt
+    b:StrictInt
 
 def run_chain(text: str) -> str:
     """LangChain + Tool calling を使って回答（文字列）を返します。
@@ -32,9 +44,39 @@ def run_chain(text: str) -> str:
     ヒント：
     - まずはツールをPython関数として作り、ログで「呼ばれた」ことを確認
     - 次にLLM側のプロンプトで「必要ならツールを使う」よう誘導
+
     """
-    # TODO(TRAINEE): Implement LangChain pipeline and tool calling.
-    raise NotImplementedError("Implement LangChain + Tool calling")
+
+    load_dotenv()
+    region = os.getenv("AWS_REGION")
+    model_id = os.getenv("BEDROCK_MODEL_ID")
+    if not region or not model_id:
+        raise RuntimeError("AWS_REGION and BEDROCK_MODEL_ID must be set")
+
+    """LangChain + Tool calling を使って回答（文字列）を返します。"""
+    @tool(args_schema=AddInput)
+    def add(a: int, b: int) -> int:
+        """2つの整数を足す。"""
+        result = a + b
+        logging.info("add tool called with %d and %d: %d", a, b, result)
+        return result
+
+    llm = ChatBedrockConverse(
+        model=model_id,
+        region_name=region,
+        temperature=0,
+    )
+    tools = [add]
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "足し算を求められたら、必ずaddツールを呼び出してから回答してください。足し算以外の事を求められても回答しないでください。"),
+        ("human", "{input}"),
+        MessagesPlaceholder("agent_scratchpad"),
+    ])
+
+    agent = create_tool_calling_agent(llm, tools, prompt)
+    executor = AgentExecutor(agent=agent, tools=tools, max_iterations=3)
+    result = executor.invoke({"input": text})
+    return result["output"]
 
 
 def main(argv: List[str] | None = None) -> int:
