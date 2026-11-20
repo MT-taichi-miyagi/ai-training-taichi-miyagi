@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import argparse
 import logging
+import math
+import re
 import sys
 from typing import List
+from pathlib import Path
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -35,8 +38,75 @@ def answer_with_rag(question: str) -> str:
     - 最初は単純なキーワード検索でもOK（高品質でなくてよい）
     - ヒットがない場合の挙動を必ず実装する
     """
-    # TODO(TRAINEE): Implement retrieval from day05/data and return Answer/Sources formatted text.
-    raise NotImplementedError("Implement RAG")
+    data_dir = Path(__file__).parent / "data"
+    if not data_dir.is_dir():
+        raise FileNotFoundError(f"データフォルダーがありません: {data_dir}")
+
+    files = sorted(data_dir.glob("*.txt"))
+
+    # Punctuation and whitespace should not count as search terms.
+    normalized_question = question.strip().lower()
+    if not normalized_question:
+        raise ValueError("質問を入力してください")
+
+    query_parts = [
+        re.sub(r"[^\w]", "", part)
+        for part in normalized_question.split()
+    ]
+    keywords = list(dict.fromkeys(
+        part[index:index + 2]
+        for part in query_parts
+        for index in range(len(part) - 1)
+    ))
+    if not keywords:
+        keywords = [part for part in query_parts if part]
+
+    # A single shared bigram is too weak to count as a relevant document.
+    min_score = max(1, math.ceil(len(keywords) * 0.5))
+    if len(keywords) > 1:
+        min_score = max(2, min_score)
+
+    matches = []
+
+    for file_path in files:
+        text = file_path.read_text(encoding="utf-8")
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+
+        # 質問の検索語が多く含まれる行を、根拠として選ぶ
+        best_line = max(
+            lines,
+            key=lambda line: sum(
+                keyword in line.lower() for keyword in keywords
+            ),
+            default="",
+        )
+        score = sum(keyword in best_line.lower() for keyword in keywords)
+
+        if score >= min_score:
+            excerpt = best_line[:200].replace('"', '\\"')
+            source = file_path.relative_to(data_dir.parent.parent).as_posix()
+            matches.append((score, source, excerpt))
+
+    if not matches:
+        return (
+            "Answer: 該当する根拠が見つかりませんでした。\n"
+            "Sources:\n"
+            "- (none)"
+        )
+
+    matches.sort(key=lambda match: match[0], reverse=True)
+    _, _, best_excerpt = matches[0]
+
+    source_lines = [
+        f'- {source} (excerpt: "{excerpt}")'
+        for _, source, excerpt in matches[:3]
+    ]
+
+    return (
+        f"Answer: 資料には「{best_excerpt}」とあります。\n"
+        "Sources:\n"
+        + "\n".join(source_lines)
+    )
 
 
 def main(argv: List[str] | None = None) -> int:

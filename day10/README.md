@@ -83,6 +83,10 @@ streamlit run final/chat_ui.py
 - `day10/README.md`
 - `final/`（最終課題のスケルトン）
 - `docs/`（設計メモ）
+　- final-state-flow.md：LangGraphの状態と処理の流れ、ステップ上限
+　- final-prompts.md：ツール選択、回答生成、JSON再生成に使うプロンプトの概要
+　- final-failure-patterns.md：検索結果なし、Bedrockエラー、不正JSONなどの扱い
+　- final-evaluation.md：ローカルで確認した項目と、実AWS接続・公開データで未確認の項目
 
 ## セルフレビュー
 
@@ -96,5 +100,5 @@ streamlit run final/chat_ui.py
 
 ## 最終課題の進捗
 
-- できたこと：
-- 残っていること：
+- できたこと：Day1～Day09から必要な機能を統合し、結果を返すことができた
+- 残っていること：streamlit run final/chat_ui.pyは未実装
